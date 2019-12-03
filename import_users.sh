@@ -22,6 +22,9 @@ then
     exit 1
 fi
 
+# Should we cache user SSH keys?
+: ${CACHE_SSH_AUTHORIZED_KEYS:=1}
+
 # Which IAM groups have access to this instance
 # Comma seperated list of IAM groups. Leave empty for all available IAM users
 : ${IAM_AUTHORIZED_GROUPS:=""}
@@ -163,6 +166,9 @@ function create_or_update_local_user() {
     local username
     local sudousers
     local localusergroups
+    local ssh_folder
+    local ssh_key_file
+    local install_dir
 
     username="${1}"
     sudousers="${2}"
@@ -186,6 +192,20 @@ function create_or_update_local_user() {
         log "Created new user ${username}"
     fi
     /usr/sbin/usermod -a -G "${localusergroups}" "${username}"
+
+    # Cache SSH keys
+    if [ ${CACHE_SSH_AUTHORIZED_KEYS} -eq 1 ]; then
+        ssh_folder="$(eval echo ~$username)/.ssh"
+        ssh_key_file="${ssh_folder}/authorized_keys"
+
+        /bin/mkdir -p "${ssh_folder}"
+
+        install_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+        ASSUMEROLE= "${install_dir}/authorized_keys_command.sh" "${username}" > "${ssh_key_file}"
+
+        /bin/chown -R "${username}:${username}" "${ssh_folder}"
+        /bin/chmod 600 "${ssh_key_file}"
+    fi
 
     # Should we add this user to sudo ?
     if [[ ! -z "${SUDOERS_GROUPS}" ]]
