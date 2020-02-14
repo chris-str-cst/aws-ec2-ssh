@@ -57,6 +57,9 @@ fi
 # Possibility to provide custom useradd arguments
 : ${USERADD_ARGS:="--user-group --create-home --shell /bin/bash"}
 
+# Which tag to use when looking for the UID value of the IAM user
+: ${IAM_USER_UID_TAG_NAME:=""}
+
 # Initizalize INSTANCE variable
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | grep region | awk -F\" '{print $4}')
@@ -169,6 +172,7 @@ function create_or_update_local_user() {
     local ssh_folder
     local ssh_key_file
     local install_dir
+    local userUid
 
     username="${1}"
     sudousers="${2}"
@@ -184,6 +188,25 @@ function create_or_update_local_user() {
     if [ ! -z "${LOCAL_GROUPS}" ]
     then
         localusergroups="${LOCAL_GROUPS},${LOCAL_MARKER_GROUP}"
+    fi
+
+    # Call AWS to get the custom UID associated to the user
+    if [ -n "${IAM_USER_UID_TAG_NAME}" ] ; then
+        # Return empty if the tag does not exist for the IAM user
+        userUid="$( \
+            aws iam get-user \
+                --query 'User.Tags[?Key==`'"${IAM_USER_UID_TAG_NAME}"'`].[Value]' \
+                --output text \
+                --user-name "${username}" \
+        )"
+
+        if [ -z "${userUid}" ] ; then
+            log "IAM user does not have the tag '${IAM_USER_UID_TAG_NAME}' defined"
+            exit 1
+        fi
+
+        # Only set the user UID at creation time.
+        USERADD_ARGS+=" --uid ${userUid}"
     fi
 
     if ! id "${username}" >/dev/null 2>&1; then
