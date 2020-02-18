@@ -51,11 +51,17 @@ fi
 # instance you use this script runs in another.
 : ${ASSUMEROLE:=""}
 
+# Possibility to provide a custom groupadd program
+: ${GROUPADD_PROGRAM:="/usr/sbin/groupadd"}
+
+# Possibility to provide custom useradd arguments
+: ${GROUPADD_ARGS:=""}
+
 # Possibility to provide a custom useradd program
 : ${USERADD_PROGRAM:="/usr/sbin/useradd"}
 
 # Possibility to provide custom useradd arguments
-: ${USERADD_ARGS:="--user-group --create-home --shell /bin/bash"}
+: ${USERADD_ARGS:="--create-home --shell /bin/bash"}
 
 # Which tag to use when looking for the UID value of the IAM user
 : ${IAM_USER_UID_TAG_NAME:=""}
@@ -208,10 +214,12 @@ function create_or_update_local_user() {
             fi
 
             # Only set the user UID at creation time.
+            GROUPADD_ARGS+=" --gid ${userUid}"
             USERADD_ARGS+=" --uid ${userUid}"
         fi
 
-        ${USERADD_PROGRAM} ${USERADD_ARGS} "${username}"
+        ${GROUPADD_PROGRAM} ${GROUPADD_ARGS} "${username}"
+        ${USERADD_PROGRAM} ${USERADD_ARGS} --gid "${username}" "${username}"
         /bin/chown -R "${username}:${username}" "$(eval echo ~$username)"
         log "Created new user ${username}"
     fi
