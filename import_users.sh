@@ -190,26 +190,27 @@ function create_or_update_local_user() {
         localusergroups="${LOCAL_GROUPS},${LOCAL_MARKER_GROUP}"
     fi
 
-    # Call AWS to get the custom UID associated to the user
-    if [ -n "${IAM_USER_UID_TAG_NAME}" ] ; then
-        # Return empty if the tag does not exist for the IAM user
-        userUid="$( \
-            aws iam get-user \
-                --query 'User.Tags[?Key==`'"${IAM_USER_UID_TAG_NAME}"'`].[Value]' \
-                --output text \
-                --user-name "${username}" \
-        )"
+    if ! id "${username}" >/dev/null 2>&1; then
 
-        if [ -z "${userUid}" ] ; then
-            log "IAM user does not have the tag '${IAM_USER_UID_TAG_NAME}' defined"
-            exit 1
+        # Call AWS to get the custom UID associated to the user
+        if [ -n "${IAM_USER_UID_TAG_NAME}" ] ; then
+            # Return empty if the tag does not exist for the IAM user
+            userUid="$( \
+                aws iam get-user \
+                    --query 'User.Tags[?Key==`'"${IAM_USER_UID_TAG_NAME}"'`].[Value]' \
+                    --output text \
+                    --user-name "${username}" \
+            )"
+
+            if [ -z "${userUid}" ] ; then
+                log "IAM user does not have the tag '${IAM_USER_UID_TAG_NAME}' defined"
+                exit 1
+            fi
+
+            # Only set the user UID at creation time.
+            USERADD_ARGS+=" --uid ${userUid}"
         fi
 
-        # Only set the user UID at creation time.
-        USERADD_ARGS+=" --uid ${userUid}"
-    fi
-
-    if ! id "${username}" >/dev/null 2>&1; then
         ${USERADD_PROGRAM} ${USERADD_ARGS} "${username}"
         /bin/chown -R "${username}:${username}" "$(eval echo ~$username)"
         log "Created new user ${username}"
