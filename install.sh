@@ -110,7 +110,7 @@ tmpdir=$(mktemp -d)
 
 cd "$tmpdir"
 
-git clone -b "$RELEASE" https://github.com/widdix/aws-ec2-ssh.git
+git clone -b "$RELEASE" https://github.com/chris-str-cst/aws-ec2-ssh.git
 
 cd "$tmpdir/aws-ec2-ssh"
 
@@ -149,7 +149,7 @@ fi
 
 ./install_configure_selinux.sh
 
-./install_configure_sshd.sh
+#./install_configure_sshd.sh
 
 cat > /etc/cron.d/import_users << EOF
 SHELL=/bin/bash
@@ -162,4 +162,4 @@ chmod 0644 /etc/cron.d/import_users
 
 $IMPORT_USERS_SCRIPT_FILE
 
-./install_restart_sshd.sh
+#./install_restart_sshd.sh
